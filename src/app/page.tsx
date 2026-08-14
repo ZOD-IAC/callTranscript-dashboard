@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useCalls } from '@/hooks/useCalls';
 import { useDashboardState } from '@/hooks/useDashboardState';
 import { CallsTable } from '@/components/CallsTable';
@@ -18,7 +18,6 @@ import { CallDetailSheet } from '@/components/CallDetailSheet';
 const PAGE_SIZE = 20;
 
 function DashboardInner() {
-  const [resetKey, setResetKey] = useState(0);
   const { calls, isLoading, error } = useCalls();
   const {
     state,
@@ -58,11 +57,6 @@ function DashboardInner() {
     return <p className='text-red-600 text-center mt-24'>Error: {error}</p>;
   }
 
-  function handleResetFilters() {
-    resetFilters();
-    setResetKey((k) => k + 1);
-  }
-
   return (
     <div className='min-h-screen bg-muted/20'>
       <header className='border-b bg-background'>
@@ -76,11 +70,10 @@ function DashboardInner() {
         {/* Sidebar */}
         <aside className='w-full md:w-64 shrink-0 bg-background border rounded-lg p-4 md:sticky md:top-6'>
           <FiltersPanel
-            key={resetKey}
             filters={state.filters}
             agentOptions={agentOptions}
             onChange={setFilters}
-            onReset={handleResetFilters}
+            onReset={resetFilters}
           />
         </aside>
         {/* Main content */}

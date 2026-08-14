@@ -62,6 +62,13 @@ export function FiltersPanel({
     onChange({ outcomes: next });
   }
 
+  function handleClearAll() {
+    setQuery('');
+    setMinDuration('');
+    setMaxDuration('');
+    onReset();
+  }
+
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
@@ -70,7 +77,7 @@ export function FiltersPanel({
           variant='ghost'
           size='sm'
           className='h-7 text-xs text-muted-foreground'
-          onClick={onReset}
+          onClick={handleClearAll}
         >
           Clear all
         </Button>
