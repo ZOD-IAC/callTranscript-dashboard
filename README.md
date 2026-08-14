@@ -7,8 +7,8 @@ A single-page dashboard for browsing, filtering, and searching call transcript r
 Requires Node.js 18+.
 
 ```bash
-git clone <repo-url>
-cd calltranscript-dashboard
+git clone https://github.com/ZOD-IAC/callTranscript-dashboard.git
+cd callTranscript-dashboard
 npm install
 npm run dev
 ```
