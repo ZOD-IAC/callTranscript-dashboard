@@ -1,69 +1,169 @@
-import Image from "next/image";
+'use client';
+import { Suspense, useMemo, useState } from 'react';
+import { useCalls } from '@/hooks/useCalls';
+import { useDashboardState } from '@/hooks/useDashboardState';
+import { CallsTable } from '@/components/CallsTable';
+import {
+  filterCalls,
+  sortCalls,
+  computeSummary,
+  formatDuration,
+} from '@/lib/calls';
+import { Card, CardContent } from '@/components/ui/card';
+import { OUTCOMES } from '@/types/call';
+import { FiltersPanel } from '@/components/FiltersPanel';
+import { uniqueAgents } from '@/lib/calls';
+import { CallDetailSheet } from '@/components/CallDetailSheet';
 
-export default function Home() {
+const PAGE_SIZE = 20;
+
+function DashboardInner() {
+  const [resetKey, setResetKey] = useState(0);
+  const { calls, isLoading, error } = useCalls();
+  const {
+    state,
+    setSort,
+    setPage,
+    openCall,
+    closeCall,
+    setFilters,
+    resetFilters,
+  } = useDashboardState();
+  const selectedCall = state.selectedCallId
+    ? (calls?.find((c) => c.id === state.selectedCallId) ?? null)
+    : null;
+  const agentOptions = useMemo(
+    () => (calls ? uniqueAgents(calls) : []),
+    [calls],
+  );
+
+  const filtered = useMemo(
+    () => (calls ? filterCalls(calls, state.filters) : []),
+    [calls, state.filters],
+  );
+  const sorted = useMemo(
+    () => sortCalls(filtered, state.sortKey, state.sortDirection),
+    [filtered, state.sortKey, state.sortDirection],
+  );
+  const summary = useMemo(() => computeSummary(filtered), [filtered]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const currentPage = Math.min(state.page, totalPages);
+  const pageItems = sorted.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  if (error) {
+    return <p className='text-red-600 text-center mt-24'>Error: {error}</p>;
+  }
+
+  function handleResetFilters() {
+    resetFilters();
+    setResetKey((k) => k + 1);
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className='min-h-screen bg-muted/20'>
+      <header className='border-b bg-background'>
+        <div className='mx-auto max-w-7xl px-6 py-4'>
+          <h1 className='text-xl font-semibold'>Call Transcript Dashboard</h1>
+          <p className='text-sm text-muted-foreground'>Adstia Agency</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <div className='mx-auto max-w-7xl px-6 py-6 flex flex-col md:flex-row gap-6 items-start'>
+        {/* Sidebar */}
+        <aside className='w-full md:w-64 shrink-0 bg-background border rounded-lg p-4 md:sticky md:top-6'>
+          <FiltersPanel
+            key={resetKey}
+            filters={state.filters}
+            agentOptions={agentOptions}
+            onChange={setFilters}
+            onReset={handleResetFilters}
+          />
+        </aside>
+        {/* Main content */}
+        <div className='flex-1 min-w-0 w-full space-y-6'>
+          {/* Summary strip */}
+          <div className='grid grid-cols-2 md:grid-cols-6 gap-3'>
+            <Card>
+              <CardContent className='pt-4'>
+                <p className='text-xs text-muted-foreground'>Total calls</p>
+                <p className='text-2xl font-bold'>{summary.total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className='pt-4'>
+                <p className='text-xs text-muted-foreground'>Avg duration</p>
+                <p className='text-2xl font-bold'>
+                  {formatDuration(summary.avgDuration)}
+                </p>
+              </CardContent>
+            </Card>
+            {OUTCOMES.map((outcome) => (
+              <Card key={outcome}>
+                <CardContent className='pt-4'>
+                  <p className='text-xs text-muted-foreground capitalize'>
+                    {outcome.replace('_', ' ')}
+                  </p>
+                  <p className='text-2xl font-bold'>
+                    {summary.byOutcome[outcome]}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardContent className='pt-4'>
+              <CallsTable
+                calls={pageItems}
+                isLoading={isLoading}
+                sortKey={state.sortKey}
+                sortDirection={state.sortDirection}
+                onSort={setSort}
+                onRowClick={(call) => openCall(call.id)}
+              />
+              {!isLoading && totalPages > 1 && (
+                <div className='flex items-center justify-center gap-3 mt-4 text-sm'>
+                  <button
+                    disabled={currentPage <= 1}
+                    onClick={() => setPage(currentPage - 1)}
+                    className='px-3 py-1 border rounded disabled:opacity-40'
+                  >
+                    Prev
+                  </button>
+                  <span>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setPage(currentPage + 1)}
+                    className='px-3 py-1 border rounded disabled:opacity-40'
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </main>
+      </div>
+      <CallDetailSheet
+        call={selectedCall}
+        searchTerm={state.filters.query}
+        onClose={closeCall}
+      />
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense>
+      <DashboardInner />
+    </Suspense>
   );
 }

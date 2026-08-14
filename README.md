@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Call Transcript Dashboard
 
-## Getting Started
+A single-page dashboard for browsing, filtering, and searching call transcript records. Built for the Adstia Agency frontend engineering task.
 
-First, run the development server:
+## Setup
+
+Requires Node.js 18+.
 
 ```bash
+git clone <repo-url>
+cd calltranscript-dashboard
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). No environment variables, API keys, or backend setup needed — `calls.json` is served statically from `/public` and fetched client-side.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To verify a production build works:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Challenges
 
-To learn more about Next.js, take a look at the following resources:
+- **Filters and search felt sluggish.** Every keystroke in the search/duration inputs was updating the URL directly, which re-ran filtering across all 300 records and re-rendered the table on every character. Fixed by keeping those inputs in local component state and only pushing to the URL (and therefore re-filtering) 300ms after typing stops. Checkbox filters (agent, outcome) update immediately since they're single clicks, not typed input.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Making "closing the detail view returns you to exactly where you were" actually true.** Rather than treating the detail view as a separate route, the selected call's id is just another URL query parameter (`?call=c_10428`) alongside the filters. Closing it just removes that one param — the page never navigates, so scroll position, filters, and pagination are untouched. This also means a shared link with a call open reopens directly to that call.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Composing filters + search + sort + pagination without them drifting out of sync.** All four are derived from one pipeline (filter → sort → slice for the current page) instead of each UI piece tracking its own version of "what's currently shown." The summary strip reads from the same filtered set before pagination, so its totals always match what filtering (not the current page) produced.
 
-## Deploy on Vercel
+- **Handling missing data.** Some records have `sentiment: null` rather than a number, which wasn't obvious from the spec's sample record. Updated the type to `number | null` and handled it explicitly in sorting, display (shows "—"), and color-coding rather than assuming clean data.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## AI usage
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+I used Claude (Anthropic) throughout this project for:
+
+- **Scaffolding** — initial Next.js + TypeScript + Tailwind + shadcn/ui project structure, including the `Call` type, the URL-state hook (`useDashboardState`), and the filter/sort/summary logic module (`lib/calls.ts`).
+- **Component code** — the results table, filters sidebar, summary cards, and the transcript detail modal were written with Claude, then adjusted by me for layout/UX (e.g. switching the detail view from a side panel to a centered modal, moving filters into a sidebar instead of a popover bar, bolding speaker labels in the transcript).
+- **Debugging** — diagnosed and fixed a hydration error caused by nesting a `Button` inside a `PopoverTrigger asChild`, a mobile horizontal-overflow issue in the table, and a "setState in effect" React warning in the filter reset logic.
+- **Performance** — identified that unfiltered URL updates on every keystroke were causing UI lag, and implemented debounced local state for text/number filter inputs plus memoizing the table component.
+
+All architectural decisions (URL as the single source of truth for filter state, one derived filter→sort→paginate pipeline, sidebar layout for filters, modal for transcript detail) were made and reviewed by me; Claude wrote implementation code against those decisions and I integrated, tested, and adjusted it in my own dev environment.
